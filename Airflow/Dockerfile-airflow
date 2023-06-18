@@ -1,0 +1,43 @@
+FROM openjdk:8-jdk
+
+#actualizar e instalar python3,pip y git
+RUN apt-get update -y && apt-get upgrade -y
+RUN apt-get install -y python3 python3-pip git
+
+# Spark
+RUN wget https://archive.apache.org/dist/spark/spark-3.3.0/spark-3.3.0-bin-hadoop3.tgz
+RUN tar -xvzf spark-3.3.0-bin-hadoop3.tgz
+RUN mkdir /opt/spark && mv spark-3.3.0-bin-hadoop3/* /opt/spark
+ENV SPARK_HOME=/opt/spark
+
+COPY requirements.txt /practica_creativa/requirements.txt
+RUN pip3 install -r /practica_creativa/requirements.txt
+
+COPY download_data.sh practica_creativa/resources/download_data.sh
+
+# Ejecutar el script durante la construcción de la imagen
+RUN chmod +x practica_creativa/resources/download_data.sh && /bin/bash practica_creativa/resources/download_data.sh
+
+COPY airflow/requirements.txt practica_creativa/resources/airflow/requirements.txt
+COPY airflow/constraints.txt practica_creativa/resources/airflow/constraints.txt
+RUN pip3 install -r practica_creativa/resources/airflow/requirements.txt -c practica_creativa/resources/airflow/constraints.txt
+
+WORKDIR /practica_creativa/resources/airflow
+
+# Setear el environment de airflow
+ENV AIRFLOW_HOME=/practica_creativa/resources/airflow
+RUN mkdir $AIRFLOW_HOME/dags
+RUN mkdir $AIRFLOW_HOME/logs
+RUN mkdir $AIRFLOW_HOME/plugins
+
+#copiar el setup.py en para que se pueda iniciar el dag e inicializar airflow
+COPY airflow/setup.py ./dags
+RUN airflow db init
+RUN airflow db upgrade
+
+#copiar y ejecutar el script que crea un usuario admin y exponer los puertos
+COPY airflow.sh airflow.sh
+ENV PROJECT_HOME=/practica_creativa
+EXPOSE 9090 8793
+RUN chmod +x airflow.sh
+CMD ["./airflow.sh"]

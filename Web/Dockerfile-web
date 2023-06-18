@@ -1,0 +1,27 @@
+FROM openjdk:8-jdk
+
+# Actualizar e instalar git
+RUN apt-get update -y && apt-get upgrade -y
+RUN apt-get install -y python3 python3-pip 
+
+
+#instalar git, clonar repo de practica_big_data, instalar requirements y joblib
+RUN apt-get install git -y
+RUN git clone https://github.com/Big-Data-ETSIT/practica_creativa.git
+
+WORKDIR /practica_creativa
+
+COPY requirements.txt requirements.txt
+RUN pip3 install -r requirements.txt
+RUN pip install joblib
+
+
+#Realizar las modificaciones pertinentes en el predict_plask.py para tener conexion a mongo y kafka y ejecutarlo
+ENV PROJECT_HOME=/practica_creativa
+RUN sed -i 's+MongoClient()+MongoClient("mongodb://mongo:27017")+g' resources/web/predict_flask.py
+RUN sed -i "s/'localhost:9092'/'kafka:9092'/g" resources/web/predict_flask.py
+RUN chmod +x resources/web/predict_flask.py
+
+CMD ["python3", "resources/web/predict_flask.py"]
+	
+

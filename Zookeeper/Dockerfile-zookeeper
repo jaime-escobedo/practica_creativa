@@ -1,0 +1,15 @@
+FROM alpine
+
+RUN apk update && apk upgrade
+RUN apk add openjdk8 wget bash
+
+RUN wget https://archive.apache.org/dist/kafka/3.0.0/kafka_2.12-3.0.0.tgz
+RUN tar -xzvf kafka_2.12-3.0.0.tgz
+
+EXPOSE 2181
+
+COPY zookeeper.sh /kafka_2.12-3.0.0/zookeeper.sh
+WORKDIR /kafka_2.12-3.0.0
+RUN chmod +x zookeeper.sh
+CMD ["./zookeeper.sh"]
+

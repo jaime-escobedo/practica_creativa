@@ -1,0 +1,32 @@
+FROM openjdk:8-jdk
+
+# Actualizar e instalar Python 3, pip y git
+RUN apt-get update -y && apt-get upgrade -y
+RUN apt-get install -y python3 python3-pip git
+
+# Spark
+RUN wget https://archive.apache.org/dist/spark/spark-3.3.0/spark-3.3.0-bin-hadoop3.tgz
+RUN tar -xvzf spark-3.3.0-bin-hadoop3.tgz
+RUN mkdir /opt/spark && mv spark-3.3.0-bin-hadoop3/* /opt/spark
+ENV SPARK_HOME=/opt/spark
+
+# Ejecutar el script de descarga de datos
+COPY resources/download_data.sh download_data.sh
+RUN chmod +x download_data.sh
+RUN ./download_data.sh
+
+# Instalar los requisitos del proyecto
+COPY requirements.txt requirements.txt
+RUN pip3 install -r requirements.txt
+
+# Copiar los modelos de predicción y el archivo JAR de predicción
+COPY models /models
+COPY flight_prediction/target/scala-2.12/flight_prediction_2.12-0.1.jar flight_prediction/target/scala-2.12/flight_prediction_2.12-0.1.jar
+RUN chmod +x flight_prediction/target/scala-2.12/flight_prediction_2.12-0.1.jar
+
+# Copiar y ejecutar el script de ejecución de spark-submit
+COPY spark.sh spark.sh
+RUN chmod +x spark.sh
+
+CMD ["./spark.sh"]
+
