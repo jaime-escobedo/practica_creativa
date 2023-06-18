@@ -1,0 +1,128 @@
+version: "3"
+services:
+  kafka:
+    image: kafka
+    build:
+      context: /Kafka
+      dockerfile: Dockerfile-kafka
+    container_name: kafka
+    restart: always
+    environment:
+      KAFKA_CREATE_TOPICS: "flight_delay_classification_request:1:1"
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+    ports:
+      - 9092:9092
+    depends_on:
+      - zookeeper
+    networks:
+      - net1
+      
+  zookeeper:
+    image: zookeeper
+    build:
+      context: /Zookeeper
+      dockerfile: Dockerfile-zookeeper
+    container_name: zookeeper
+    restart: always
+    ports:
+      - 2181:2181
+    networks:
+      - net1
+      
+  mongo:
+    image: mongo
+    hostname: mongo
+    build:
+      context: /Mongo
+      dockerfile: Dockerfile-mongo
+    container_name: mongo
+    restart: always
+    ports:
+      - "27017:27017"
+    networks:
+      - net1
+  
+  master:
+    image: bitnami/spark:3.3.0
+    container_name: master
+    hostname: master
+    restart: always
+    ports:
+      - 8080:8080
+      - 7077:7077
+    environment:
+      SPARK_MODE: master
+    networks:
+      - net1
+    volumes:
+      - ./Spark/models:/models
+      
+  worker:
+    image: bitnami/spark:3.3.0
+    restart: always
+    deploy:
+      replicas: 3
+    environment:
+      SPARK_MODE: worker
+      SPARK_MASTER_URL: spark://master:7077
+    depends_on:
+      - master
+    networks:
+      - net1
+    volumes:
+      - ./Spark/models:/models
+      - ./Spark/resources:/resources
+  
+  web:
+    image: web
+    build:
+      context: /Web
+      dockerfile: Dockerfile-web
+    container_name: web
+    restart: always
+    ports:
+      - 5000:5000
+    depends_on:
+      - mongo
+      - spark
+    networks:
+      - net1
+  spark:
+    image: spark
+    build:
+      context: /Spark
+      dockerfile: Dockerfile-spark
+    container_name: spark
+    restart: always
+    depends_on:
+      - mongo
+      - master
+      - kafka
+    networks:
+      - net1
+    volumes:
+      - ./Spark/models:/models
+  
+  airflow:
+    image: airflow
+    build:
+      context: /Airflow
+      dockerfile: Dockerfile-airflow
+    container_name: airflow
+    restart: always
+    ports:
+      - 9090:9090
+    depends_on:
+      - master
+    networks:
+      - net1
+
+  
+networks:
+  net1:
+volumes:
+  models:
+  resources:
+
